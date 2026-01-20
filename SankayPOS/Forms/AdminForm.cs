@@ -12,6 +12,12 @@ public partial class AdminForm : Form
     private DataGridView? _dgvReport;
     private Label? _lblTotalRevenue;
     
+    // Set license context once for the application
+    static AdminForm()
+    {
+        ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+    }
+    
     public AdminForm()
     {
         InitializeComponent();
@@ -209,8 +215,6 @@ public partial class AdminForm : Form
             MessageBox.Show("Dışa aktarılacak veri yok!", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
-        
-        ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
         
         using var package = new ExcelPackage();
         var worksheet = package.Workbook.Worksheets.Add("Rapor");

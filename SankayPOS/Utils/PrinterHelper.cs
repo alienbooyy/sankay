@@ -136,7 +136,13 @@ public static class PrinterHelper
     /// </summary>
     public static string GetPrinterIP(PrinterType printerType)
     {
-        var settingKey = printerType == PrinterType.Kitchen ? "KitchenPrinterIP" : "OvenPrinterIP";
+        var settingKey = printerType switch
+        {
+            PrinterType.Kitchen => "KitchenPrinterIP",
+            PrinterType.Oven => "OvenPrinterIP",
+            _ => throw new ArgumentException($"Unknown printer type: {printerType}", nameof(printerType))
+        };
+        
         var result = Database.DatabaseHelper.ExecuteScalar(
             "SELECT Value FROM Settings WHERE Key = @key",
             new System.Data.SQLite.SQLiteParameter("@key", settingKey));

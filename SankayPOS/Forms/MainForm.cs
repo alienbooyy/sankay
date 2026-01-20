@@ -127,6 +127,8 @@ public partial class MainForm : Form
         _longPressTimer.Tick += LongPressTimer_Tick;
     }
     
+    private const int DefaultTableCount = 12;
+    
     private void LoadTables()
     {
         _tablePanel?.Controls.Clear();
@@ -135,7 +137,7 @@ public partial class MainForm : Form
         // If no tables exist, create some default ones
         if (tables.Count == 0)
         {
-            for (int i = 1; i <= 12; i++)
+            for (int i = 1; i <= DefaultTableCount; i++)
             {
                 _tableRepo.AddTable($"Masa {i}", i);
             }

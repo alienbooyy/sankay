@@ -10,12 +10,13 @@ namespace SankayPOS.Utils;
 /// TCP/IP server for tablet integration
 /// Allows tablets on the local network to connect and send orders
 /// </summary>
-public class TabletServer
+public class TabletServer : IDisposable
 {
     private TcpListener? _listener;
     private bool _isRunning;
     private readonly int _port;
     private readonly string _ipAddress;
+    private CancellationTokenSource? _cancellationTokenSource;
     
     public event EventHandler<OrderReceivedEventArgs>? OrderReceived;
     
@@ -36,9 +37,10 @@ public class TabletServer
             _listener = new TcpListener(localAddr, _port);
             _listener.Start();
             _isRunning = true;
+            _cancellationTokenSource = new CancellationTokenSource();
             
             // Start accepting connections in background
-            Task.Run(() => AcceptClients());
+            _ = Task.Run(() => AcceptClients(_cancellationTokenSource.Token));
             
             System.Diagnostics.Debug.WriteLine($"Tablet server started on {_ipAddress}:{_port}");
         }
@@ -51,25 +53,31 @@ public class TabletServer
     public void Stop()
     {
         _isRunning = false;
+        _cancellationTokenSource?.Cancel();
         _listener?.Stop();
         System.Diagnostics.Debug.WriteLine("Tablet server stopped");
     }
     
-    private async Task AcceptClients()
+    private async Task AcceptClients(CancellationToken cancellationToken)
     {
-        while (_isRunning)
+        while (_isRunning && !cancellationToken.IsCancellationRequested)
         {
             try
             {
                 if (_listener == null)
                     break;
                     
-                var client = await _listener.AcceptTcpClientAsync();
-                _ = Task.Run(() => HandleClient(client));
+                var client = await _listener.AcceptTcpClientAsync(cancellationToken);
+                _ = Task.Run(() => HandleClient(client), cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected when stopping
+                break;
             }
             catch (Exception ex)
             {
-                if (_isRunning)
+                if (_isRunning && !cancellationToken.IsCancellationRequested)
                     System.Diagnostics.Debug.WriteLine($"Error accepting client: {ex.Message}");
             }
         }
@@ -79,23 +87,46 @@ public class TabletServer
     {
         try
         {
-            using var stream = client.GetStream();
-            var buffer = new byte[4096];
-            var bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
-            
-            if (bytesRead > 0)
+            using (client)
             {
-                var message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                ProcessMessage(message);
+                using var stream = client.GetStream();
+                var buffer = new byte[4096];
+                var messageBuilder = new StringBuilder();
+                int bytesRead;
+                
+                // Read data in chunks to handle large messages
+                while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                {
+                    messageBuilder.Append(Encoding.UTF8.GetString(buffer, 0, bytesRead));
+                    
+                    // Check if we have a complete JSON message
+                    var message = messageBuilder.ToString();
+                    if (IsCompleteJson(message))
+                    {
+                        ProcessMessage(message);
+                        break;
+                    }
+                }
             }
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Error handling client: {ex.Message}");
         }
-        finally
+    }
+    
+    private static bool IsCompleteJson(string message)
+    {
+        try
         {
-            client.Close();
+            // Simple check: count opening and closing braces
+            int openBraces = message.Count(c => c == '{');
+            int closeBraces = message.Count(c => c == '}');
+            return openBraces > 0 && openBraces == closeBraces;
+        }
+        catch
+        {
+            return false;
         }
     }
     
@@ -103,14 +134,27 @@ public class TabletServer
     {
         try
         {
-            // Expected message format: JSON with order details
-            // Example: {"TableId": 1, "Items": [{"ProductId": 1, "Quantity": 2}]}
-            var orderData = JsonSerializer.Deserialize<TabletOrderData>(message);
+            // Validate and deserialize with safe settings
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                MaxDepth = 10 // Prevent deep nesting attacks
+            };
             
-            if (orderData != null)
+            var orderData = JsonSerializer.Deserialize<TabletOrderData>(message, options);
+            
+            if (orderData != null && ValidateOrderData(orderData))
             {
                 OnOrderReceived(new OrderReceivedEventArgs { OrderData = orderData });
             }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("Invalid order data received");
+            }
+        }
+        catch (JsonException ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error parsing JSON: {ex.Message}");
         }
         catch (Exception ex)
         {
@@ -118,9 +162,34 @@ public class TabletServer
         }
     }
     
+    private static bool ValidateOrderData(TabletOrderData orderData)
+    {
+        // Basic validation
+        if (orderData.TableId <= 0)
+            return false;
+        
+        if (orderData.Items == null || orderData.Items.Count == 0)
+            return false;
+        
+        foreach (var item in orderData.Items)
+        {
+            if (item.ProductId <= 0 || item.Quantity <= 0)
+                return false;
+        }
+        
+        return true;
+    }
+    
     protected virtual void OnOrderReceived(OrderReceivedEventArgs e)
     {
         OrderReceived?.Invoke(this, e);
+    }
+    
+    public void Dispose()
+    {
+        Stop();
+        _cancellationTokenSource?.Dispose();
+        GC.SuppressFinalize(this);
     }
 }
 

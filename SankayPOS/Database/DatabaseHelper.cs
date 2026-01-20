@@ -5,7 +5,9 @@ namespace SankayPOS.Database;
 
 public class DatabaseHelper
 {
-    private static readonly string ConnectionString = "Data Source=sankay.db;Version=3;";
+    // Configuration - can be changed to point to different database locations
+    public static string DatabaseFileName { get; set; } = "sankay.db";
+    private static string ConnectionString => $"Data Source={DatabaseFileName};Version=3;";
     
     public static void InitializeDatabase()
     {
