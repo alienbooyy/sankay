@@ -116,6 +116,12 @@ public class DatabaseHelper
         cmd.ExecuteNonQuery();
         cmd.CommandText = "INSERT OR IGNORE INTO Settings (Key, Value) VALUES ('TabletServerPort', '8080')";
         cmd.ExecuteNonQuery();
+        
+        // Insert default printer settings
+        cmd.CommandText = "INSERT OR IGNORE INTO Settings (Key, Value) VALUES ('KitchenPrinterIP', '192.168.1.100')";
+        cmd.ExecuteNonQuery();
+        cmd.CommandText = "INSERT OR IGNORE INTO Settings (Key, Value) VALUES ('OvenPrinterIP', '192.168.1.101')";
+        cmd.ExecuteNonQuery();
     }
     
     public static SQLiteConnection GetConnection()

@@ -113,6 +113,12 @@ On first launch, the application will:
 2. Initialize all necessary tables
 3. Create 12 default tables (Masa 1 through Masa 12)
 4. Set default admin password to "1234"
+5. Load sample data including:
+   - 15 sample products (Lahmacun, Pide, Pizza, Kebabs, Drinks, etc.)
+   - 10 raw materials (Kıyma, Un, Peynir, etc.)
+   - Sample recipes linking products to ingredients
+
+You can immediately start using the system with this sample data or modify/delete it as needed.
 
 ## Usage Guide
 
@@ -164,6 +170,15 @@ Settings for tablet integration are stored in the database:
 - TabletServerIP: '192.168.1.35'
 - TabletServerPort: '8080'
 
+The tablet server can accept JSON-formatted orders from tablets on the local network. To enable it, update the TabletServerEnabled setting in the database.
+
+### Printer Settings
+Printer IP addresses are configurable in the database:
+- KitchenPrinterIP: '192.168.1.100' (default)
+- OvenPrinterIP: '192.168.1.101' (default)
+
+The system currently includes print formatting for SPENTA thermal printers. Actual printer integration requires SPENTA SDK/drivers to be installed separately.
+
 ## Project Structure
 
 ```
@@ -182,6 +197,10 @@ SankayPOS/
 │   └── SplitPaymentForm.cs    # Split payment dialog
 ├── Models/
 │   └── Models.cs              # Data models
+├── Utils/
+│   ├── SampleDataInitializer.cs # Sample data loader
+│   ├── PrinterHelper.cs       # Thermal printer formatting
+│   └── TabletServer.cs        # TCP/IP server for tablets
 └── Program.cs                 # Application entry point
 ```
 

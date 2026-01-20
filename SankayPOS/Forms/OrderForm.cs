@@ -335,22 +335,17 @@ public partial class OrderForm : Form
     
     private void PrintOrder(Order order)
     {
-        // This would integrate with SPENTA thermal printers
-        // For now, we'll just create a simple print preview
-        var printText = $"MASA: {_table.Name}\n";
-        printText += $"TARİH: {order.OrderDate:dd.MM.yyyy HH:mm}\n";
-        printText += new string('-', 30) + "\n";
+        // Print to kitchen and oven printers
+        var kitchenOrder = Utils.PrinterHelper.FormatOrderForPrint(order, _table.Name, Utils.PrinterHelper.PrinterType.Kitchen);
+        var ovenOrder = Utils.PrinterHelper.FormatOrderForPrint(order, _table.Name, Utils.PrinterHelper.PrinterType.Oven);
         
-        foreach (var item in order.Items)
-        {
-            printText += $"{item.Quantity}x {item.ProductName}\n";
-        }
+        Utils.PrinterHelper.PrintToThermalPrinter(kitchenOrder, Utils.PrinterHelper.PrinterType.Kitchen);
+        Utils.PrinterHelper.PrintToThermalPrinter(ovenOrder, Utils.PrinterHelper.PrinterType.Oven);
         
-        printText += new string('-', 30) + "\n";
-        printText += $"TOPLAM: {order.TotalAmount:C}\n";
-        
-        // In production, this would send to actual thermal printer
-        System.Diagnostics.Debug.WriteLine(printText);
+        // Also generate customer receipt
+        var receipt = Utils.PrinterHelper.FormatReceiptForPrint(order, _table.Name);
+        System.Diagnostics.Debug.WriteLine("=== CUSTOMER RECEIPT ===");
+        System.Diagnostics.Debug.WriteLine(receipt);
     }
     
     private class OrderItemDisplay
